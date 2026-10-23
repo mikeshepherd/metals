@@ -9,14 +9,19 @@ import org.eclipse.lsp4j.ApplyWorkspaceEditParams
 import org.eclipse.lsp4j.ApplyWorkspaceEditResponse
 import org.eclipse.lsp4j.ConfigurationParams
 import org.eclipse.lsp4j.ExecuteCommandParams
+import org.eclipse.lsp4j.LogTraceParams
 import org.eclipse.lsp4j.MessageActionItem
 import org.eclipse.lsp4j.MessageParams
 import org.eclipse.lsp4j.ProgressParams
 import org.eclipse.lsp4j.PublishDiagnosticsParams
 import org.eclipse.lsp4j.RegistrationParams
+import org.eclipse.lsp4j.ShowDocumentParams
+import org.eclipse.lsp4j.ShowDocumentResult
 import org.eclipse.lsp4j.ShowMessageRequestParams
+import org.eclipse.lsp4j.TextDocumentContentRefreshParams
 import org.eclipse.lsp4j.UnregistrationParams
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams
+import org.eclipse.lsp4j.WorkspaceFolder
 
 class DelegatingLanguageClient(var underlying: MetalsLanguageClient)
     extends MetalsLanguageClient {
@@ -82,6 +87,12 @@ class DelegatingLanguageClient(var underlying: MetalsLanguageClient)
     underlying.showMessageRequest(params)
   }
 
+  override def showDocument(
+      params: ShowDocumentParams
+  ): CompletableFuture[ShowDocumentResult] = {
+    underlying.showDocument(params)
+  }
+
   override def logMessage(message: MessageParams): Unit = {
     underlying.logMessage(message)
   }
@@ -118,8 +129,38 @@ class DelegatingLanguageClient(var underlying: MetalsLanguageClient)
   override def refreshModel(): CompletableFuture[Unit] =
     underlying.refreshModel()
 
+  override def refreshCodeLenses(): CompletableFuture[Void] = {
+    underlying.refreshCodeLenses()
+  }
+
+  override def refreshSemanticTokens(): CompletableFuture[Void] = {
+    underlying.refreshSemanticTokens()
+  }
+
   override def refreshInlayHints(): CompletableFuture[Void] = {
     underlying.refreshInlayHints()
+  }
+
+  override def refreshInlineValues(): CompletableFuture[Void] = {
+    underlying.refreshInlineValues()
+  }
+
+  override def refreshDiagnostics(): CompletableFuture[Void] = {
+    underlying.refreshDiagnostics()
+  }
+
+  override def refreshFoldingRanges(): CompletableFuture[Void] = {
+    underlying.refreshFoldingRanges()
+  }
+
+  override def refreshTextDocumentContent(
+      params: TextDocumentContentRefreshParams
+  ): CompletableFuture[Void] = {
+    underlying.refreshTextDocumentContent(params)
+  }
+
+  override def workspaceFolders(): CompletableFuture[ju.List[WorkspaceFolder]] = {
+    underlying.workspaceFolders()
   }
 
   override def configuration(
@@ -133,6 +174,10 @@ class DelegatingLanguageClient(var underlying: MetalsLanguageClient)
 
   override def notifyProgress(params: ProgressParams): Unit =
     underlying.notifyProgress(params)
+
+  override def logTrace(params: LogTraceParams): Unit = {
+    underlying.logTrace(params)
+  }
 
   override def metalsCreateTerminal(
       params: MetalsCreateTerminalParams
