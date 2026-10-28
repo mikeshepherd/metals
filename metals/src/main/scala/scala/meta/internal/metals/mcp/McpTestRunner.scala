@@ -51,9 +51,9 @@ class McpTestRunner(
         .toRight(
           s"Could not find build target for $path, try running `import-build`."
         )
-      jvmTestEnv = debugProvider.jvmTestEnvironment(id)
       result <-
         if (debugProvider.usesBuildTargetTest(id)) {
+          val jvmTestEnv = debugProvider.jvmTestEnvironment(id)
           // Same path as non-debug editor runs for MBT: BSP buildTarget/test.
           Right {
             debugProvider.confirmMbtTestClassCandidates(path, id).flatMap { _ =>
@@ -72,12 +72,25 @@ class McpTestRunner(
               }
             }
           }
+        } else if (
+          buildTargets
+            .scalaTarget(id)
+            .exists(_.scalaPlatform != b.ScalaPlatform.JVM)
+        ) {
+          val testSuites = new b.ScalaTestSuites(
+            List(testSelection).asJava,
+            Nil.asJava,
+            Nil.asJava,
+          )
+          debugProvider
+            .runBuildTargetTest(id, testSuites, cancelPromise, verbose)
+            .map(_.map(output => AnsiFilter()(output)))
         } else {
           runLocally(
             id,
             path,
             testSelection,
-            jvmTestEnv,
+            debugProvider.jvmTestEnvironment(id),
             cancelPromise,
             verbose,
           )
@@ -117,6 +130,14 @@ class McpTestRunner(
         env <- jvmTestEnv
         testSuites = createTestSuites(testSelection, env)
         discovered <- debugProvider.discoverTests(id, testSuites)
+        _ <-
+          if (discovered.values.forall(_.isEmpty))
+            Future.failed(
+              new IllegalStateException(
+                s"No test suites discovered for ${testSelection.getClassName}."
+              )
+            )
+          else Future.successful(())
         project <- projectFut
         listener = new McpDebuggeeListener(verbose)
         adapter = new TestSuiteDebugAdapter(
@@ -128,7 +149,15 @@ class McpTestRunner(
           isDebug = false,
         )
         _ <- adapter.run(listener).future
-      } yield listener.result
+        result <-
+          if (listener.result.isEmpty)
+            Future.failed(
+              new IllegalStateException(
+                s"No test results for ${testSelection.getClassName}. Check that the test framework loaded and the suite was discovered."
+              )
+            )
+          else Future.successful(listener.result)
+      } yield result
     }
   }
 

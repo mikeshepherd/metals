@@ -50,6 +50,40 @@ class ActivePlatformsSuite
     } yield ()
   }
 
+  test("mcp-runs-scalajs-tests-through-bsp") {
+    cleanWorkspace()
+    for {
+      _ <- initialize(
+        s"""|/project/build.properties
+            |sbt.version=${V.sbtVersion}
+            |/project/plugins.sbt
+            |addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.20.2")
+            |/build.sbt
+            |${SbtBuildLayout.commonSbtSettings}
+            |ThisBuild / scalaVersion := "2.13.17"
+            |lazy val jsProject = project.in(file("js"))
+            |  .enablePlugins(ScalaJSPlugin)
+            |  .settings(libraryDependencies += "org.scalameta" %%% "munit" % "1.0.0")
+            |/js/src/test/scala/JsMcpSuite.scala
+            |class JsMcpSuite extends munit.FunSuite {
+            |  test("runs on JavaScript") {
+            |    assert(1 + 1 == 2)
+            |  }
+            |}
+            |""".stripMargin
+      )
+      _ <- server.didOpen("js/src/test/scala/JsMcpSuite.scala")
+      _ = assertNoDiagnostics()
+      path = server.toPath("js/src/test/scala/JsMcpSuite.scala")
+      result <- server.headServer.mcpTestRunner
+        .runTests("JsMcpSuite", Some(path), None, verbose = false) match {
+        case Right(value) => value
+        case Left(error) => throw new RuntimeException(error)
+      }
+      _ = assert(result.contains("JsMcpSuite: passed"), result)
+    } yield ()
+  }
+
   test("native-not-compiled-by-default") {
     cleanWorkspace()
     for {

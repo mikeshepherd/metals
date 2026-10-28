@@ -226,6 +226,40 @@ class McpRunTestSuite extends BaseLspSuite("mcp-test") {
     } yield ()
   }
 
+  test("missing-suite-reports-error", maxRetry = 3) {
+    cleanWorkspace()
+    for {
+      _ <- initialize(
+        """|/metals.json
+           |{
+           |  "a": {
+           |    "libraryDependencies" : ["org.scalameta::munit:1.0.0-M4"]
+           |  }
+           |}
+           |/a/src/test/scala/a/ExistingSuite.scala
+           |package a
+           |class ExistingSuite extends munit.FunSuite {
+           |  test("works") { assert(true) }
+           |}
+           |""".stripMargin
+      )
+      _ <- server.didOpen("a/src/test/scala/a/ExistingSuite.scala")
+      _ = assertNoDiagnostics()
+      path = server.toPath("a/src/test/scala/a/ExistingSuite.scala")
+      result <- server.headServer.mcpTestRunner
+        .runTests("a.MissingSuite", Some(path), None, verbose = false) match {
+        case Right(value) => value.failed
+        case Left(error) => throw new RuntimeException(error)
+      }
+      _ = assert(
+        result.getMessage.contains(
+          "No test suites discovered for a.MissingSuite"
+        ),
+        result.getMessage,
+      )
+    } yield ()
+  }
+
   test("zio-test", maxRetry = 3) {
     cleanWorkspace()
     for {
