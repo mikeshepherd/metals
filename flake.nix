@@ -11,6 +11,26 @@
       inherit (pkgs) lib;
       jdk = pkgs.jdk21;
       source = self;
+      buildDefinition = lib.cleanSourceWith {
+        src = source;
+        filter =
+          path: type:
+          let
+            relative = lib.removePrefix "${source}/" (toString path);
+          in
+          relative == "build.sbt"
+          || relative == ".jvmopts"
+          || relative == "project"
+          || (
+            lib.hasPrefix "project/" relative
+            && (
+              type == "directory"
+              || lib.hasSuffix ".scala" relative
+              || lib.hasSuffix ".sbt" relative
+              || lib.hasSuffix ".properties" relative
+            )
+          );
+      };
       javaOptions = lib.escapeShellArgs [
         "-XX:+UseG1GC"
         "-XX:+UseStringDeduplication"
@@ -45,7 +65,7 @@
       sbtDependencies = pkgs.stdenvNoCC.mkDerivation {
         pname = "metals-sbt-dependencies";
         version = "2.0.0";
-        src = source;
+        src = buildDefinition;
         nativeBuildInputs = [
           pkgs.sbt
           jdk
@@ -53,7 +73,7 @@
         ];
         outputHashMode = "recursive";
         outputHashAlgo = "sha256";
-        outputHash = "sha256-IDtR3Oqd37NTptm14Uz94MC/a+uSAjnczEJgWOs2ha4=";
+        outputHash = "sha256-2NYIvcjS3/Iz9LCF92F9peaMoaFaKYgbAAnNu9jTl8s=";
 
         buildPhase = ''
           runHook preBuild
@@ -64,7 +84,19 @@
           sbt -batch \
             -Dsbt.boot.directory="$out/sbt-boot" \
             -Dsbt.ivy.home="$out/ivy2" \
-            "metals-mcp/Compile/compile"
+            "metals-mcp/Compile/update" \
+            "metals/Compile/update" \
+            "mtags/Compile/update" \
+            "mtags-java/Compile/update" \
+            "mtags-protobuf/Compile/update" \
+            "mtagsShared/Compile/update" \
+            "interfaces/Compile/update" \
+            "jsemanticdb/Compile/update" \
+            "semanticdb-javac/Compile/update" \
+            "semanticdb-protoc/Compile/update" \
+            "turbine/Compile/update" \
+            "metals/scalaCompilerBridgeBinaryJar" \
+            "jsemanticdb/protocExecutable"
           runHook postBuild
         '';
 
